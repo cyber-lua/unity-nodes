@@ -18,28 +18,36 @@ public enum EasingStyle
     SineInOut,
     CubicIn,
     CubicOut,
-    CubicInOut
+    CubicInOut,
+    Instant // New easing style
 }
 
-public class NodeModule : MonoBehaviour
+public class nodeSystem : MonoBehaviour
 {
     public bool is2D = true; // Toggle for 2D or 3D functionality
-
+    public Transform movingObject; // Reference to the object that will move
     public Transform[] nodes; // An array to store the reference to the nodes
-
+    public float[] nodeDurations; // An array to store the duration for each node
     public bool loop = false; // Option to loop the animation
     public bool autoplayOnStart = false; // Option to autoplay the animation on start
-
+    public bool triggerOnClick = false; // Option to trigger the animation on click
     public EasingStyle easingStyle = EasingStyle.Linear; // Easing style for movement
 
     private int currentNodeIndex = 0; // The index of the current node being targeted
     private bool isMoving = false; // Flag to check if the object is currently moving
-
     private bool hasStarted = false; // Flag to check if the animation has started
 
     private void Start()
     {
         if (autoplayOnStart && !hasStarted)
+        {
+            PlayTween();
+        }
+    }
+
+    private void OnMouseDown()
+    {
+        if (triggerOnClick)
         {
             PlayTween();
         }
@@ -59,33 +67,41 @@ public class NodeModule : MonoBehaviour
         isMoving = true;
 
         // Get the position of the current node and the next node
-        Vector3 startPos = transform.position;
+        Vector3 startPos = movingObject.position;
         Vector3 targetPos = nodes[currentNodeIndex].position;
 
         float elapsedTime = 0f;
-        float duration = 1f; // The duration of the tween in seconds
+        float duration = nodeDurations.Length > currentNodeIndex ? nodeDurations[currentNodeIndex] : 1f; // The duration of the tween in seconds
 
-        while (elapsedTime < duration)
+        if (easingStyle == EasingStyle.Instant)
         {
-            elapsedTime += Time.deltaTime;
-
-            // Calculate the interpolation value between the start and target positions
-            float t = Mathf.Clamp01(elapsedTime / duration);
-
-            // Apply the easing style to the interpolation value
-            t = ApplyEasingStyle(t);
-
-            // Apply the interpolation to move the object smoothly
-            if (is2D)
+            // Instantly move to the next node
+            movingObject.position = targetPos;
+        }
+        else
+        {
+            while (elapsedTime < duration)
             {
-                transform.position = Vector2.Lerp(startPos, targetPos, t);
-            }
-            else
-            {
-                transform.position = Vector3.Lerp(startPos, targetPos, t);
-            }
+                elapsedTime += Time.deltaTime;
 
-            yield return null;
+                // Calculate the interpolation value between the start and target positions
+                float t = Mathf.Clamp01(elapsedTime / duration);
+
+                // Apply the easing style to the interpolation value
+                t = ApplyEasingStyle(t);
+
+                // Apply the interpolation to move the object smoothly
+                if (is2D)
+                {
+                    movingObject.position = Vector2.Lerp(startPos, targetPos, t);
+                }
+                else
+                {
+                    movingObject.position = Vector3.Lerp(startPos, targetPos, t);
+                }
+
+                yield return null;
+            }
         }
 
         // Update the current node index for the next move
@@ -137,6 +153,8 @@ public class NodeModule : MonoBehaviour
                 return 1f - Mathf.Pow(1f - t, 3);
             case EasingStyle.CubicInOut:
                 return t < 0.5f ? 4f * Mathf.Pow(t, 3) : 1f - Mathf.Pow(-2f * t + 2f, 3) * 0.5f;
+            case EasingStyle.Instant:
+                return 1f; // Instantly set t to 1 for instant teleportation
             default:
                 return t;
         }
